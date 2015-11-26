@@ -1,9 +1,13 @@
 {
   "name": "github-publish-npm",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "This will upload publish npm assets to the GitHub Releases API.",
   "main": "dist/publish.js",
+  "bin": {
+    "publish": "dist/publish.js"
+  },
   "scripts": {
+    "postinstall": "make dist",
     "build": "make dist",
     "test": "make test",
     "postpublish": "node dist/publish.js"
