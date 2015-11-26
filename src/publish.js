@@ -106,7 +106,7 @@ var ensureAssets = function(releaseId, releaseItems, callback){
 		id: releaseId,
 	}, GitHub_msgBase);
 
-	var uploadAssets = function(error, data){
+	GitHub.releases.listAssets(GitHub_releaseMsgBase, function(error, data){
 		if (error){
 			console.error('There was an error trying to list assets for the release ' + packageJson.release + ': ', error);
 			process.exit(1);
@@ -130,14 +130,15 @@ var ensureAssets = function(releaseId, releaseItems, callback){
 					var deleteAsset = _.extend({
 						id: id,
 					}, GitHub_msgBase);
-					GitHub.releases.deleteAsset(deleteAsset, function(error, data){
+					GitHub.releases.deleteAsset(deleteAsset, function(error){
 						if (error){
 							console.error('There was an error trying delete an asset: ', error);
 							process.exit(1);
 						}
-						removed.push(item);
+						console.log('Deleted ' + _.find(data, 'id', id).name);
+						removed.push(id);
 						if (removed.length == ids.length){
-							uploadAssets(error, data);
+							ensureAssets(releaseId, releaseItems, callback);
 						}
 					});
 				});
@@ -163,6 +164,7 @@ var ensureAssets = function(releaseId, releaseItems, callback){
 						console.error('There was an error trying upload an asset "' + item + '" : ', error);
 						process.exit(1);
 					}
+					console.log('Uploaded ' + path.basename(item));
 					itemsUploaded.push(item);
 					if (itemsUploaded.length == itemsToUpload.length){
 						callback();
@@ -170,8 +172,7 @@ var ensureAssets = function(releaseId, releaseItems, callback){
 				});
 			});
 		}
-	};
-	GitHub.releases.listAssets(GitHub_releaseMsgBase, uploadAssets);
+	});
 };
 
 ensureRelease(packageJson.version, function(releaseId){
