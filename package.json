@@ -1,0 +1,34 @@
+{
+  "name": "github-publish-npm",
+  "version": "0.0.1",
+  "description": "This will upload publish npm assets to the GitHub Releases API.",
+  "main": "dist/publish.js",
+  "scripts": {
+    "build": "make dist",
+    "test": "make test",
+    "postpublish": "node dist/publish.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ofersadgat/github-publish-npm.git"
+  },
+  "keywords": [
+    "github",
+    "npm",
+    "publish"
+  ],
+  "author": "Ofer Sadgat",
+  "license": "BSD-3-Clause",
+  "bugs": {
+    "url": "https://github.com/ofersadgat/github-publish-npm/issues"
+  },
+  "homepage": "https://github.com/ofersadgat/github-publish-npm",
+  "dependencies": {
+    "lodash": "^3.10.1"
+  },
+  "devDependencies": {
+    "git-url-parse": "^4.1.0",
+    "github": "^0.2.4",
+    "ini": "^1.3.4"
+  }
+}
