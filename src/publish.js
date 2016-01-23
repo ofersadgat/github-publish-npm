@@ -1,44 +1,54 @@
 #!/usr/bin/env node
 
-const _ = require('lodash');
-const fs = require('fs');
-const path = require('path');
-const ini = require('ini');
-const GitUrlParse = require("git-url-parse");
-const GitHubApi = require('github');
+const _             = require('lodash');
+const fs            = require('fs');
+const path          = require('path');
+const ini           = require('ini');
+const GitUrlParse   = require("git-url-parse");
+const GitHubApi     = require('github');
 
-var overwriteAssets = false;
+var program = require('commander');
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-if (!GITHUB_TOKEN) {
+program
+  .version(require('../package.json').version)
+  .option('-i, --input [path]', 'The folder / file that you want uploaded [./dist]', path.resolve(process.cwd(), 'dist'))
+  .option('-t, --token [token]', 'The GitHub token to use. Will also look for GITHUB_TOKEN environment variable.', process.env.GITHUB_TOKEN)
+  .option('-o, --overwrite', 'Will overwrite the existing assets [false]', false)
+  .option('-u, --upload-version [version]', 'The version to upload. This will not change the latest in addition to the supplied version')
+  .option('-p, --package [path]', 'The path to the package.json. You can use this or the version option, but this will also update "latest" [./package.json]', path.resolve(process.cwd(), 'package.json'))
+  .parse(process.argv);
+
+const overwriteAssets = program.overwriteAssets;
+
+if (!program.token) {
 	console.error('You do not have GITHUB_TOKEN set in your environment.');
 	process.exit(1);
 }
 
-var distPath = path.resolve(process.cwd(), 'dist');
-if (!fs.existsSync(distPath)){
-	console.error('Dist has not been built.');
+if (!fs.existsSync(program.input)){
+	console.error('The upload path "' + program.input + '" does not exist.');
 	process.exit(1);
 }
 
-var distItems = fs.readdirSync(distPath)
-	.map(function(item){
-		return path.resolve(distPath, item);
-	})
-	.filter(function(item){
-		return fs.statSync(item).isFile();
-	});
-if (!distItems || distItems.length == 0){
-	console.error('No files found in the dist directory.');
+var items = fs.lstatSync(program.input).isDirectory() ?
+	fs.readdirSync(program.input)
+		.map(function(item){
+			return path.resolve(program.input, item);
+		})
+		.filter(function(item){
+			return fs.statSync(item).isFile();
+		}) :
+	[program.input];
+if (!items || items.length == 0){
+	console.error('No files found to upload.');
 	process.exit(1);
 }
 
-var packageJsonPath = path.resolve(process.cwd(), 'package.json');
-if (!fs.existsSync(packageJsonPath)){
-	console.error('Cannot find a package.json.');
+var version = program.uploadVersion || (fs.existsSync(program.package) && require(program.package).version);
+if (!version){
+	console.error('You did not specify a version to upload.');
 	process.exit(1);
 }
-var packageJson = require(packageJsonPath);
 
 var gitConfigPath = path.resolve(process.cwd(), '.git', 'config');
 if (!fs.existsSync(gitConfigPath)){
@@ -60,7 +70,7 @@ const GitHub = new GitHubApi({
 
 GitHub.authenticate({
 	type: 'token',
-	token: GITHUB_TOKEN,
+	token: program.token,
 });
 
 var ensureRelease = function(releaseVersion, callback){
@@ -88,7 +98,7 @@ var ensureRelease = function(releaseVersion, callback){
 	});
 };
 
-var ensureAssets = function(releaseId, releaseItems, callback){
+var ensureAssets = function(release, releaseId, releaseItems, overwriteAssets, callback){
 
 	var getReleaseItemByBasename = function(releaseItems, name){
 		if (name instanceof Array){
@@ -108,7 +118,7 @@ var ensureAssets = function(releaseId, releaseItems, callback){
 
 	GitHub.releases.listAssets(GitHub_releaseMsgBase, function(error, data){
 		if (error){
-			console.error('There was an error trying to list assets for the release ' + packageJson.release + ': ', error);
+			console.error('There was an error trying to list assets for the release ' + release + ': ', error);
 			process.exit(1);
 		}
 
@@ -138,7 +148,7 @@ var ensureAssets = function(releaseId, releaseItems, callback){
 						console.log('Deleted ' + _.find(data, 'id', id).name);
 						removed.push(id);
 						if (removed.length == ids.length){
-							ensureAssets(releaseId, releaseItems, callback);
+							ensureAssets(release, releaseId, releaseItems, overwriteAssets, callback);
 						}
 					});
 				});
@@ -175,9 +185,16 @@ var ensureAssets = function(releaseId, releaseItems, callback){
 	});
 };
 
-ensureRelease(packageJson.version, function(releaseId){
-	ensureAssets(releaseId, distItems, function(){
-		console.log('Successfully uploaded version ', packageJson.version);
+console.log('Uploading version ', version);
+ensureRelease(version, function(releaseId){
+	ensureAssets(version, releaseId, items, overwriteAssets, function(){
+		console.log('Successfully uploaded version ', version);
+		console.log('Uploading latest...');
+		ensureRelease('latest', function(latestReleaseId){
+			ensureAssets('latest', latestReleaseId, items, true, function(){
+				console.log('Successfully uploaded version ', version, ' as latest.');
+			});
+		});
 	});
 });
 
