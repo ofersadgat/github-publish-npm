@@ -18,7 +18,7 @@ program
   .option('-p, --package [path]', 'The path to the package.json. You can use this or the version option, but this will also update "latest" [./package.json]', path.resolve(process.cwd(), 'package.json'))
   .parse(process.argv);
 
-const overwriteAssets = program.overwriteAssets;
+const overwriteAssets = program.overwrite;
 
 if (!program.token) {
 	console.error('You do not have GITHUB_TOKEN set in your environment.');
